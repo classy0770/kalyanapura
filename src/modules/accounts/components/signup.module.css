@@ -1,0 +1,46 @@
+.experience { max-width: 1100px; margin: -12px auto 0; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e6ded5; border-radius: 12px; overflow: hidden; background: #fffdfa; box-shadow: 0 20px 65px -35px rgb(70 44 31 / 22%); font-family: var(--font-signup-body), Arial, sans-serif; }
+.story { min-width: 0; background: #742c40; color: #fff8f1; display: flex; flex-direction: column; }
+.storyCopy { padding: 42px 42px 30px; }
+.eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #ebcad0; }
+.story h2 { font-family: var(--font-signup-display), Georgia, serif; font-size: clamp(32px, 3.3vw, 44px); line-height: 1.12; letter-spacing: -.025em; margin: 20px 0 18px; }
+.story h2 em { font-weight: 400; color: #efd8cc; }
+.storyCopy p { margin: 0; max-width: 340px; color: #f0dce0; font-size: 13px; line-height: 1.8; }
+.photograph { position: relative; min-height: 285px; flex: 1; margin: 0 24px; border-radius: 6px; overflow: hidden; background: #5d2132; }
+.photograph img { object-fit: cover; object-position: center 54%; }
+.photograph::after { content: ""; position: absolute; inset: 40% 0 0; background: linear-gradient(transparent, rgb(31 19 17 / 80%)); }
+.photograph figcaption { position: absolute; bottom: 22px; left: 24px; right: 24px; z-index: 1; font-family: var(--font-signup-display), Georgia, serif; font-size: 25px; line-height: 1.2; }
+.photograph figcaption span { display: block; margin-top: 9px; color: #f0e0d6; font-family: var(--font-signup-body), Arial, sans-serif; font-size: 9px; letter-spacing: .04em; }
+.storyFooter { padding: 22px 24px; color: #f0dce0; font-size: 10px; letter-spacing: .025em; display: flex; align-items: center; gap: 10px; }
+.storyFooter > span { font-size: 20px; color: #e7c8af; }
+.formPanel { padding: 44px 48px; display: flex; align-items: center; min-width: 0; }
+.signupCard { width: 100%; max-width: none; padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; }
+.signupCard h1 { font-family: var(--font-signup-display), Georgia, serif; font-size: 44px; line-height: 1.05; letter-spacing: -.035em; margin: 15px 0; max-width: 340px; }
+.signupCard p { line-height: 1.8; font-size: 13px; }
+.signupCard .intro { margin: 0; color: #635e59; }
+.signupCard form { margin-top: 28px; gap: 19px; }
+.signupCard label { font-size: 12px; }
+.signupCard input { font-size: 13px; min-height: 50px; border-radius: 5px; padding: 13px 14px; }
+.signupCard input::placeholder { color: #8a8179; }
+.passwordField { position: relative; display: block; margin-top: 7px; }
+.passwordField input { padding-right: 66px; }
+.passwordToggle { position: absolute; top: 3px; right: 3px; min-width: 54px; min-height: 44px; padding: 8px; border: 0; background: transparent; color: #742c40; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 4px; }
+.passwordToggle:hover { background: #f5edef; }
+.passwordToggle:focus-visible { outline: 2px solid #742c40; outline-offset: 1px; }
+.passwordToggle:disabled { cursor: wait; }
+.signupCard .submit { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 50px; font-size: 13px; margin-top: 3px; }
+.submit span { font-size: 18px; line-height: 1; }
+.signupCard .verificationNote { display: flex; align-items: flex-start; gap: 9px; margin: 15px 0 0; font-size: 11px; color: #635e59; line-height: 1.65; }
+.verificationNote svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+.signupCard .signupLinks { border-top: 1px solid #e6ded5; padding-top: 20px; margin-top: 24px; justify-content: center; font-size: 12px; }
+.signupLinks span { color: #635e59; }
+.signupLinks a { font-weight: 600; }
+@media (max-width: 1000px) { .formPanel { padding: 36px 30px; } .storyCopy { padding: 36px 30px 28px; } }
+@media (max-width: 760px) {
+  .experience { grid-template-columns: 1fr; max-width: 490px; margin: 0 auto; }
+  .storyCopy { padding: 26px 28px; }
+  .story h2 { font-size: 34px; margin: 12px 0 0; }
+  .storyCopy p, .photograph, .storyFooter { display: none; }
+  .formPanel { padding: 32px 28px; }
+  .signupCard h1 { font-size: 39px; }
+}
+@media (max-width: 380px) { .formPanel, .storyCopy { padding-left: 22px; padding-right: 22px; } .signupCard h1 { font-size: 35px; } .story h2 { font-size: 30px; } }

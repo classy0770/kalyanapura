@@ -1,0 +1,42 @@
+{
+  "name": "kalyanapura",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "check:contracts": "node --conditions=react-server scripts/scaffold-contract-check.cjs",
+    "check:accounts": "node --conditions=react-server scripts/accounts-integration-check.cjs",
+    "check:smoke": "node scripts/scaffold-smoke-check.cjs"
+  },
+  "dependencies": {
+    "@better-auth/mongo-adapter": "1.7.7",
+    "better-auth": "1.7.7",
+    "inngest": "4.23.0",
+    "mongodb": "7.7.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "resend": "6.32.1",
+    "server-only": "0.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.4.0",
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.0",
+    "mongodb-memory-server": "11.3.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.1"
+  }
+}

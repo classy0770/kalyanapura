@@ -1,0 +1,24 @@
+.shell { min-height: 100vh; background: #f8f5ef; }
+.header { max-width: 1200px; margin: auto; padding: 24px 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #e6ded5; }
+.header img { width: 174px; height: auto; display: block; }
+.header > a:last-child { font-size: 13px; color: #635e59; text-decoration: none; }
+.main { padding: 55px 22px 80px; }
+.card { max-width: 490px; margin: auto; padding: 36px; border: 1px solid #e6ded5; border-radius: 12px; background: #fffdfa; box-shadow: 0 15px 40px -30px rgb(70 44 31 / 20%); }
+.card h1 { font-size: 38px; margin: 12px 0 16px; color: #262421; }
+.card p { font-size: 14px; }
+.eyebrow { font-size: 10px !important; text-transform: uppercase; letter-spacing: .15em; color: #742c40; font-weight: 600; }
+.form { display: grid; gap: 18px; margin-top: 27px; }
+.form label { display: grid; gap: 7px; color: #302b29; font-size: 13px; font-weight: 600; }
+.form input { width: 100%; padding: 13px 14px; border: 1px solid #d9cfc4; border-radius: 5px; background: white; font: inherit; font-weight: 400; color: #262421; min-height: 48px; }
+.form input:focus-visible, .button:focus-visible, .card a:focus-visible { outline: 3px solid #742c40; outline-offset: 3px; }
+.hint { font-size: 11px; font-weight: 400; color: #635e59; }
+.button { width: 100%; min-height: 48px; padding: 12px 18px; border: 1px solid #742c40; border-radius: 5px; background: #742c40; color: white; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.button:hover { background: #5d2132; }
+.button:disabled { opacity: .6; cursor: wait; }
+.links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 25px; font-size: 12px; }
+.message { padding: 13px 15px; border: 1px solid #cbdccb; background: #f1f7ef; border-radius: 5px; color: #305038 !important; overflow-wrap: anywhere; }
+.error { border-color: #e2b6be; background: #fcf0f2; color: #742c40 !important; }
+.details { border-top: 1px solid #e6ded5; padding-top: 18px; margin-top: 25px; }
+.details strong { display: block; overflow-wrap: anywhere; }
+.footer { text-align: center; color: #635e59; padding: 20px; font-size: 11px; }
+@media (max-width: 540px) { .header { padding: 20px 22px; } .header img { width: 145px; } .main { padding-top: 35px; } .card { padding: 27px 22px; } .card h1 { font-size: 34px; } }
