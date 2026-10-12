@@ -1,0 +1,50 @@
+.page { background: #fef8f3; color: #302927; font-family: var(--wedding-body), sans-serif; min-height: 100vh; overflow-wrap: anywhere; }
+.page p { max-width: none; color: #665b55; }
+.page h1, .page h2, .page h3 { font-family: var(--wedding-display), Georgia, serif; font-weight: 400; }
+.page a, .page button, .page input, .page select { -webkit-tap-highlight-color: transparent; }
+.page button, .page select { font: inherit; }
+.page button, .page a { cursor: pointer; }
+.page :focus-visible { outline: 3px solid #742c40; outline-offset: 4px; }
+.header { max-width: 1200px; margin: auto; padding: 24px 40px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #e5d9cf; }
+.brand { font-family: var(--wedding-display), Georgia, serif; font-size: 30px; color: #742c40; text-decoration: none; line-height: 1.1; }
+.brand span { display: block; font: 10px var(--wedding-body), sans-serif; letter-spacing: .12em; margin-top: 7px; color: #665b55; }
+.header nav { font-size: 12px; gap: 28px; }
+.header nav a { text-decoration: none; }
+.badge { font-size: 10px; color: #742c40; letter-spacing: .05em; padding: 8px 12px; border: 1px solid #e5d9cf; border-radius: 30px; }
+.preview { max-width: 1120px; margin: 24px auto 0; padding: 16px 20px; background: #f3eae2; display: flex; gap: 20px; align-items: center; border-radius: 8px; font-size: 11px; }
+.preview strong { color: #742c40; }.preview p { margin: 3px 0 0; }.preview div { flex: 1; }
+.preview label { display: grid; gap: 4px; }.preview select { max-width: 100%; padding: 8px; border: 1px solid #d6c5b9; background: #fffcf9; border-radius: 4px; }
+.preview button { border: 0; background: transparent; color: #742c40; text-decoration: underline; padding: 12px 0; }
+.hero { text-align: center; max-width: 1120px; margin: auto; padding: 56px 36px 0; }
+.seal { display: flex; align-items: center; justify-content: center; border: 1px solid #c7aaa0; color: #742c40; border-radius: 50%; width: 68px; height: 68px; margin: 0 auto 25px; font: 27px var(--wedding-display), serif; }
+.seal span { font-size: 18px; margin: 0 3px; }
+.eyebrow { text-transform: uppercase; font-size: 10px; font-weight: 600; letter-spacing: .17em; color: #742c40 !important; }
+.salutation { font: italic 25px var(--wedding-display), serif; margin: 27px 0 10px; }
+.hero h1 { max-width: none; font-size: clamp(56px, 7vw, 90px); letter-spacing: -.025em; margin: 0 0 16px; }.hero h1 em { font-weight: 400; color: #9e6b73; }
+.welcome { max-width: 550px !important; margin: auto; font-size: 13px; line-height: 1.9; }
+.date { font-size: 12px; margin: 25px 0; font-weight: 600; }.date span { margin: 0 10px; color: #a57c6c; }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 20px; padding: 14px 24px; min-height: 48px; border: 1px solid #742c40; border-radius: 5px; font-size: 12px !important; text-decoration: none; }
+.primary { background: #742c40; color: #fffdfa; }.primary:hover { background: #5c2232; }.primary:disabled { opacity: .5; cursor: default; }
+.secondary { background: #fffdfa; color: #742c40; }
+.cover { height: 330px; margin-top: 44px; position: relative; overflow: hidden; border-radius: 120px 120px 6px 6px; }.cover img { object-fit: cover; object-position: center 55%; }.cover span { position: absolute; bottom: 20px; left: 20px; right: 20px; background: #fff8f3; color: #742c40; padding: 8px 16px; width: fit-content; margin: auto; font: italic 22px var(--wedding-display), serif; }
+.content { max-width: 1120px; padding: 64px 36px; margin: auto; display: grid; grid-template-columns: 1.35fr 1fr; align-items: start; gap: 48px; }
+.events, .rsvp { scroll-margin-top: 24px; }.events h2, .rsvp h2 { font-size: 38px; margin: 10px 0 14px; }.events > p { font-size: 12px; line-height: 1.8; }
+.event { margin: 26px 0; background: #fffdfa; border: 1px solid #e5d9cf; border-radius: 8px; overflow: hidden; }
+.eventImage { position: relative; height: 175px; }.eventImage img { object-fit: cover; }.eventImage > span { position: absolute; bottom: 14px; left: 20px; background: #fffdfa; padding: 5px 10px; font-size: 10px; color: #742c40; border-radius: 3px; }
+.eventBody { padding: 24px; }.eventBody h3 { font-size: 31px; margin: 8px 0; }.eventBody p { font-size: 12px; line-height: 1.8; }.time { color: #742c40 !important; font-weight: 600; }.time span { display: block; font-weight: 400; font-size: 10px; color: #665b55; }
+.venue { display: grid; gap: 5px; border-top: 1px solid #eee3d9; margin-top: 22px; padding-top: 17px; font-size: 12px; }.venue span { color: #665b55; }.venue a { padding: 8px 0; width: fit-content; color: #742c40; }
+.dress { padding-top: 14px; margin-bottom: 0; border-top: 1px solid #eee3d9; }.dress strong { display: block; color: #302927; font-weight: 500; }
+.note { font-size: 11px !important; font-style: italic; }
+.rsvp { background: #fffdfa; border: 1px solid #e5d9cf; border-radius: 8px; padding: 30px; position: sticky; top: 24px; }.rsvp > p { font-size: 12px; line-height: 1.9; }
+.choices { border: 0; padding: 0; margin: 28px 0 22px; }.choices legend { font-size: 12px; font-weight: 600; margin-bottom: 10px; }
+.choice { display: flex; align-items: center; gap: 12px; border: 1px solid #dfd4ca; border-radius: 5px; padding: 15px; margin-bottom: 10px; cursor: pointer; }.active { background: #f8eeeb; border-color: #742c40; }.choice input { width: 18px; height: 18px; accent-color: #742c40; flex-shrink: 0; }.choice strong { display: block; font-size: 12px; }.choice small { display: block; color: #665b55; margin-top: 4px; font-size: 10px; }.choice:has(input:disabled) { opacity: .55; cursor: default; }
+.party { display: grid; gap: 9px; font-size: 12px; font-weight: 600; margin: 20px 0; }.party select { padding: 12px; background: #fffdfa; border: 1px solid #dfd4ca; border-radius: 4px; min-height: 48px; }.party small { font-weight: 400; color: #665b55; font-size: 10px; }
+.rsvp form > button { width: 100%; }.disclaimer { font-size: 10px !important; color: #665b55; line-height: 1.8; }.personal { border-top: 1px solid #e5d9cf; margin-top: 26px; padding-top: 22px; display: flex; gap: 14px; }.personal > span { color: #742c40; font-size: 24px; }.personal strong { font-size: 11px; }.personal p { font-size: 10px; margin: 5px 0 0; }
+.confirmation { margin-top: 28px; text-align: center; background: #f1f5ef; border-radius: 6px; padding: 24px 16px; }.check { display: inline-flex; align-items: center; justify-content: center; background: #e0eadc; color: #365339; border-radius: 50%; width: 42px; height: 42px; }.confirmation h3 { font-size: 28px; margin: 15px 0; }.confirmation p { font-size: 12px; }.confirmation button { width: 100%; margin-top: 12px; }
+.empty { border: 1px solid #dfd4ca; padding: 28px; background: #f6eee7; border-radius: 8px; margin: 26px 0; }.empty h3 { font-size: 27px; margin: 0 0 12px; }.empty p { font-size: 12px; }
+.closing { text-align: center; padding: 20px 24px 64px; }.closing p { font: italic 22px var(--wedding-display), serif; }.closing h2 { font-size: 46px; color: #742c40; margin: 8px 0; }.closing span { font-size: 11px; color: #665b55; }
+.footer { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e5d9cf; padding: 24px; font-size: 11px; color: #665b55; }.footer a { color: #742c40; }.footer span { flex-basis: 100%; text-align: center; font-size: 10px; }
+.unavailable { max-width: 650px; margin: auto; text-align: center; padding: 90px 24px; min-height: 65vh; }.unavailable h1 { font-size: 48px; }.unavailable p { font-size: 13px; margin: 22px 0; }
+.skip, .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }.skip:focus { width: auto; height: auto; clip-path: none; top: 12px; left: 12px; background: white; padding: 12px; z-index: 5; }
+@media (max-width: 900px) { .preview { margin: 16px 24px 0; }.content { gap: 24px; padding: 44px 24px; }.rsvp { padding: 22px; }.badge { display: none; } }
+@media (max-width: 700px) { .header { padding: 20px; }.brand { font-size: 26px; }.brand span { font-size: 8px; }.header nav { gap: 14px; font-size: 11px; }.header nav a { padding: 12px 0; }.preview { margin: 16px; flex-wrap: wrap; gap: 12px; }.preview div { flex-basis: 100%; }.preview label { flex: 1; }.hero { padding: 36px 20px 0; }.hero h1 { font-size: 58px; }.welcome { font-size: 12px; }.date { font-size: 11px; }.date span { margin: 0 4px; }.cover { height: 235px; margin-top: 32px; border-radius: 70px 70px 6px 6px; }.cover span { font-size: 18px; left: 10px; right: 10px; bottom: 14px; }.content { grid-template-columns: 1fr; padding: 40px 20px; gap: 26px; }.rsvp { position: static; }.events h2, .rsvp h2 { font-size: 35px; }.eventBody { padding: 20px; }.closing { padding-bottom: 40px; }.unavailable { padding: 60px 24px; }.unavailable h1 { font-size: 39px; } }

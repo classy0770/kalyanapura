@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { authClient } from "../client";
 import styles from "./account.module.css";
 
-export function LogoutButton() {
+export function LogoutButton({ className = styles.button }: { className?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const router = useRouter();
-  return <><button className={styles.button} disabled={busy} onClick={async () => {
+  return <><button className={className} disabled={busy} onClick={async () => {
     setBusy(true); setError(false);
     try { const result = await authClient.signOut();
       if (result.error) { setError(true); return; }

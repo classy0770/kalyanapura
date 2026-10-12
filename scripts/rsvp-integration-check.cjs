@@ -1,0 +1,113 @@
+// Disposable replica set, synthetic guests; no .env loading or providers.
+const assert = require("node:assert/strict");
+const { randomBytes } = require("node:crypto");
+const { MongoClient,ObjectId } = require("mongodb");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const { sourceLoader } = require("./scaffold-contract-check.cjs");
+async function main() {
+  const replica = await MongoMemoryReplSet.create({ replSet: { count: 1 },binary: { version: "8.2.6" },instanceOpts: [{ launchTimeout: 60000 }] });
+  const client = new MongoClient(replica.getUri());
+  try {
+    await client.connect(); const db = client.db("rsvp_isolated"), key = randomBytes(32).toString("hex");
+    process.env.NODE_ENV = "development"; process.env.APP_ORIGIN = "http://localhost:3100"; process.env.WEDDING_GALLERY_ENCRYPTION_KEY = key; process.env.AUTH_TRUSTED_IP_HEADER = "";
+    const load = sourceLoader(), errors = load("src/server/http/errors.ts"), overrides = { "@/server/http/errors": errors,"./errors": errors };
+    const account = id => ({ id,name: "Synthetic member",email: id+"@example.com",emailVerified: true });
+    const admin = account("admin"), other = account("other");
+    const weddings = load("src/modules/weddings/server/service.ts").createWeddingService(db,client,() => key);
+    const first = await weddings.create(admin,{ brideName: "Bride",groomName: "Groom",weddingDate: "2027-02-14",location: "Kochi" });
+    const second = await weddings.create(other,{ brideName: "Other",groomName: "Couple",weddingDate: "2027-02-14",location: "Kochi" });
+    const weddingId = first.wedding.id;
+    const guests = sourceLoader(overrides)("src/modules/guests/server/service.ts").createGuestService(db,client,() => key);
+    const events = sourceLoader(overrides)("src/modules/events/server/service.ts").createEventService(db,client,() => 25);
+    const event = await events.create(admin,weddingId,{ name: "Ceremony",type: "wedding",startsAt: "2027-02-14T10:00:00+05:30" });
+    const foreignEvent = await events.create(other,second.wedding.id,{ name: "Foreign",type: "wedding",startsAt: "2027-02-14T10:00:00+05:30" });
+    const guest = await guests.create(admin,weddingId,{ name: "Family",maxPartySize: 4,invitedEventIds: [event.id],notes: "private" });
+    const invitation = sourceLoader(overrides)("src/modules/guests/server/invitation-service.ts").createInvitationService(db);
+    const access = sourceLoader(overrides)("src/modules/guests/server/guest-access.ts");
+    async function cookieFor(id) {
+      const link = await guests.invitationLink(admin,weddingId,id), token = new URL(link.url).pathname.split("/").at(-1);
+      return access.guestCookie(await invitation.exchange({ source: "invitation",token })).split(";")[0];
+    }
+    const cookie = await cookieFor(guest.id);
+    const displayed = await invitation.invitation(new globalThis.Headers({ cookie }));
+    const service = sourceLoader(overrides)("src/modules/guests/server/rsvp-service.ts").createRsvpService(db,client);
+    const { handleGuestRsvp } = sourceLoader({ ...overrides,"./guest-access": access,"./rsvp-service": { getRsvpService: async () => service },"@/modules/accounts/server/session": { getAccount: async () => null } })("src/modules/guests/server/rsvp-handler.ts");
+    const request = (answer,version,c = cookie,extra = {}) => new Request(process.env.APP_ORIGIN+"/api/v1/guest/rsvp",{ method: "PUT",headers: { cookie: c,origin: process.env.APP_ORIGIN,"Content-Type": "application/json","X-KP-Request": "1",...(version === undefined ? {} : { "X-Expected-Version": String(version) }),...extra },body: JSON.stringify({ invitationContext: displayed.invitationContext,...answer }) });
+    const save = (answer,version,c,extra) => handleGuestRsvp(request(answer,version,c,extra));
+    const attending = count => ({ status: "attending",partySize: count }), decline = { status: "not_attending",partySize: 0 };
+    const guestB = await guests.create(admin,weddingId,{ name: "Other invitation",maxPartySize: 4,invitedEventIds: [event.id] });
+    const cookieB = await cookieFor(guestB.id), displayedB = await invitation.invitation(new globalThis.Headers({ cookie: cookieB }));
+    assert.equal(displayed.guest.version,displayedB.guest.version);
+    assert.notEqual(displayed.invitationContext,displayedB.invitationContext);
+    const beforeB = await db.collection("guests").findOne({ _id: new ObjectId(guestB.id) });
+    let mismatch = await save(attending(2),1,cookieB);
+    assert.equal(mismatch.status,409); assert.equal((await mismatch.json()).error.code,"INVITATION_CONTEXT_CHANGED");
+    assert.deepEqual(await db.collection("guests").findOne({ _id: beforeB._id }),beforeB);
+    assert.equal((await guests.read(admin,weddingId,guest.id)).version,1);
+    assert.equal((await save({ ...decline,invitationContext: displayedB.invitationContext },1,cookieB)).status,200);
+    assert.equal((await save(decline,1,cookieB)).status,409,"Identical replay must also match the displayed invitation");
+    assert.equal((await save({ ...attending(1),invitationContext: undefined },1)).status,422);
+    await db.collection("guests").deleteOne({ _id: beforeB._id });
+    assert.equal((await save(attending(2),1,"kalyanapura.session_token=admin")).status,401);
+    assert.equal((await save(attending(2),1,cookie+"x")).status,401);
+    assert.equal((await save(attending(2),1,cookie,{ origin: "https://evil.example" })).status,403);
+    assert.equal((await save(attending(2),1,cookie,{ "Content-Type": "text/plain" })).status,415);
+    assert.equal((await save(attending(2),undefined)).status,428);
+    assert.equal((await save(attending(2),"1,2")).status,400);
+    for (const answer of [{ status: "pending",partySize: 0 },attending(0),attending(5),attending(2.5),{ ...decline,partySize: 1 },{ ...attending(2),updatedByKind: "member" }]) assert.equal((await save(answer,1)).status,422);
+    await db.collection("rate_limits").deleteMany({ action: /^guest_rsvp/ });
+    let response = await save(attending(3),1); assert.equal(response.status,200); assert.equal(response.headers.get("X-Resource-Version"),"2"); assert.equal(response.headers.get("Cache-Control"),"private, no-store");
+    const saved = (await response.json()).data; assert.equal(saved.rsvp.partySize,3); assert.doesNotMatch(JSON.stringify(saved),/updatedBy|notes|token|email|weddingId/);
+    const stored = await db.collection("guests").findOne({ _id: new ObjectId(guest.id) });
+    assert.equal(stored.rsvp.updatedByKind,"guest"); assert.equal(stored.rsvp.updatedByUserId,null);
+    response = await save(attending(3),1); assert.equal(response.status,200); assert.deepEqual((await response.json()).data,saved);
+    const replayed = await db.collection("guests").findOne({ _id: stored._id }); assert.equal(+replayed.updatedAt,+stored.updatedAt);
+    assert.equal((await save(decline,1)).status,412);
+    const concurrent = await Promise.all([save(attending(2),2),save(decline,2)]); assert.deepEqual(concurrent.map(r => r.status).sort(),[200,412]);
+    const current = await guests.read(admin,weddingId,guest.id);
+    const identical = await Promise.all([save(attending(4),current.version),save(attending(4),current.version)]); assert.ok(identical.every(r => r.status === 200));
+    assert.deepEqual(await guests.overview(admin,weddingId),{ guestCount: 1,respondedGuestCount: 1,attending: 1,notAttending: 0,pending: 0,expectedAttendees: 4 });
+    assert.equal((await guests.overview(other,second.wedding.id)).expectedAttendees,0);
+    await assert.rejects(() => guests.overview(other,weddingId),e => e.status === 404);
+    await guests.create(admin,weddingId,{ name: "Pending family" });
+    assert.deepEqual(await guests.overview(admin,weddingId),{ guestCount: 2,respondedGuestCount: 1,attending: 1,notAttending: 0,pending: 1,expectedAttendees: 4 });
+    let latest = await guests.read(admin,weddingId,guest.id);
+    await assert.rejects(() => guests.patch(admin,weddingId,guest.id,{ maxPartySize: 3 },() => latest.version),e => e.code === "RSVP_LIMIT_CONFLICT");
+    // A deleting or foreign event cannot authorise new attendance. Existing answers survive.
+    await db.collection("events").updateOne({ _id: new ObjectId(event.id) },{ $set: { status: "deleting" } });
+    await db.collection("guests").updateOne({ _id: stored._id },{ $addToSet: { invitedEventIds: new ObjectId(foreignEvent.id) } });
+    response = await save(attending(4),1); assert.equal(response.status,200); assert.equal((await response.json()).data.capabilities.canAttend,false);
+    assert.equal((await save(attending(3),latest.version)).status,409);
+    assert.equal((await save(decline,latest.version)).status,200);
+    latest = await guests.read(admin,weddingId,guest.id); assert.equal(latest.rsvp.partySize,0);
+    assert.equal((await guests.overview(admin,weddingId)).expectedAttendees,0);
+    const declinedOverview = await guests.overview(admin,weddingId); assert.equal(declinedOverview.notAttending,1); assert.equal(declinedOverview.pending,1);
+    const view = await invitation.invitation(new globalThis.Headers({ cookie })); assert.equal(view.capabilities.canRespond,true); assert.equal(view.capabilities.canAttend,false);
+    await guests.changeInvitation(admin,weddingId,guest.id,{ enabled: false },() => latest.version);
+    assert.equal((await save(decline,1)).status,404,"Identical replay never bypasses revoked access");
+    latest = await guests.read(admin,weddingId,guest.id);
+    await guests.changeInvitation(admin,weddingId,guest.id,{ enabled: true },() => latest.version);
+    latest = await guests.read(admin,weddingId,guest.id);
+    await guests.changeInvitation(admin,weddingId,guest.id,{},() => latest.version,true);
+    assert.equal((await save(decline,1)).status,404);
+    const fresh = await cookieFor(guest.id);
+    const freshDisplay = await invitation.invitation(new globalThis.Headers({ cookie: fresh }));
+    assert.notEqual(freshDisplay.invitationContext,displayed.invitationContext);
+    assert.equal((await save(decline,1,fresh)).status,409,"An older token-version display cannot save through a new grant");
+    assert.equal((await save({ ...decline,invitationContext: freshDisplay.invitationContext },1,fresh)).status,200);
+    await db.collection("guests").deleteOne({ _id: stored._id });
+    assert.equal((await save(decline,1,fresh)).status,404);
+    await db.collection("weddings").deleteOne({ _id: new ObjectId(weddingId) });
+    assert.equal((await save(decline,1,fresh)).status,404);
+    const { admitGuestRsvp } = sourceLoader(overrides)("src/modules/guests/server/access-limiter.ts");
+    const limitDb = client.db("rsvp_limits_isolated"), realNow = Date.now, fixedNow = realNow(); let admissions;
+    try { Date.now = () => fixedNow; admissions = await Promise.allSettled(Array.from({ length: 30 },() => admitGuestRsvp(limitDb,new globalThis.Headers(),"synthetic-wedding-guest-version"))); }
+    finally { Date.now = realNow; }
+    assert.equal(admissions.filter(r => r.status === "fulfilled").length,20);
+    assert.ok(admissions.filter(r => r.status === "rejected").every(r => r.reason.status === 429 && r.reason.details.retryAfterSeconds > 0));
+    assert.doesNotMatch(JSON.stringify(await limitDb.collection("rate_limits").find().toArray()),/synthetic-wedding-guest-version|shared-local/);
+    assert.equal(await db.collection("background_jobs").countDocuments(),0);
+    console.log("PASS: displayed invitation binding across equal-version guests and token replacement, validation, CSRF/auth, projections, revisions, unchanged identical replay, concurrent saves, live revocation, invited-event rules and scoped totals. No Atlas/provider calls.");
+  } finally { await client.close(); await replica.stop(); }
+}
+main().catch(error => { console.error("FAIL: isolated RSVP check:",error.message.split("\n")[0]); process.exitCode=1; });

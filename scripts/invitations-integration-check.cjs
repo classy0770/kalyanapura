@@ -1,0 +1,103 @@
+// Isolated replica set and synthetic members only; no .env loading or provider calls.
+const assert = require("node:assert/strict");
+const { randomBytes } = require("node:crypto");
+const { MongoClient, ObjectId } = require("mongodb");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const { sourceLoader } = require("./scaffold-contract-check.cjs");
+async function main() {
+  const replica = await MongoMemoryReplSet.create({ replSet: { count: 1 },binary: { version: "8.2.6" },instanceOpts: [{ launchTimeout: 60000 }] });
+  const client = new MongoClient(replica.getUri());
+  try {
+    await client.connect(); const db = client.db("invitations_isolated"), key = randomBytes(32).toString("hex");
+    process.env.NODE_ENV = "development"; process.env.APP_ORIGIN = "http://localhost:3100"; process.env.WEDDING_GALLERY_ENCRYPTION_KEY = key; process.env.BETTER_AUTH_SECRET = randomBytes(32).toString("hex");
+    const load = sourceLoader(), errors = load("src/server/http/errors.ts"), config = load("src/server/config.ts");
+    const overrides = { "@/server/http/errors": errors,"./errors": errors,"@/server/config": config };
+    const account = id => ({ id,name: "Synthetic member",email: id+"@example.com",emailVerified: true });
+    const admin = account("admin"), other = account("other"), manager = account("manager");
+    const weddings = load("src/modules/weddings/server/service.ts").createWeddingService(db,client,() => key);
+    const input = { brideName: "Bride",groomName: "Groom",weddingDate: "2027-02-14",location: "Kochi" };
+    const first = await weddings.create(admin,input), second = await weddings.create(other,input), weddingId = first.wedding.id;
+    const member = await db.collection("wedding_members").findOne({ userId: admin.id });
+    await db.collection("wedding_members").insertOne({ ...member,_id: new ObjectId(),userId: manager.id,role: "manager" });
+    const guests = sourceLoader(overrides)("src/modules/guests/server/service.ts").createGuestService(db,client,() => key);
+    const events = sourceLoader(overrides)("src/modules/events/server/service.ts").createEventService(db,client,() => 25);
+    const eventInput = { name: "Private invited ceremony",type: "wedding",startsAt: "2027-02-14T10:00:00+05:30",isPublic: false };
+    const event = await events.create(admin,weddingId,eventInput);
+    await events.create(admin,weddingId,{ ...eventInput,name: "Uninvited celebration" });
+    const foreign = await events.create(other,second.wedding.id,{ ...eventInput,name: "Foreign celebration" });
+    const guest = await guests.create(admin,weddingId,{ name: "Family",email: "private@example.com",phone: "private phone",notes: "Private organiser notes",invitedEventIds: [event.id],maxPartySize: 4 });
+    const invitation = sourceLoader(overrides)("src/modules/guests/server/invitation-service.ts").createInvitationService(db);
+    const access = sourceLoader(overrides)("src/modules/guests/server/guest-access.ts");
+    const handlers = sourceLoader({ ...overrides,"./service": { getGuestService: async () => guests },"./invitation-service": { getInvitationService: async () => invitation },"./guest-access": access,"@/modules/accounts/server/session": { getAccount: async headers => [admin,manager,other].find(value => headers.get("cookie") === "kalyanapura.session_token="+value.id) ?? null } })("src/modules/guests/server/invitation-handlers.ts");
+    const req = (method,body,cookie = "",extra = {}) => new globalThis.Request(process.env.APP_ORIGIN+"/api/v1/guest/access",{ method,headers: { origin: process.env.APP_ORIGIN,"Content-Type": "application/json","X-KP-Request": "1",cookie,...extra },...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+    const memberCookie = "kalyanapura.session_token="+admin.id;
+    assert.equal((await handlers.handleInvitationLink(req("GET"),weddingId,guest.id,"read")).status,401);
+    assert.equal((await handlers.handleInvitationLink(req("GET",undefined,"kalyanapura.session_token="+other.id),weddingId,guest.id,"read")).status,404);
+    const linkResponse = await handlers.handleInvitationLink(req("GET",undefined,memberCookie,{ host: "evil.example" }),weddingId,guest.id,"read");
+    assert.equal(linkResponse.status,200); assert.equal(linkResponse.headers.get("Cache-Control"),"private, no-store");
+    const link = (await linkResponse.json()).data; assert.ok(link.url.startsWith("http://localhost:3100/invite/")); assert.equal(link.enabled,true); assert.equal(link.guestVersion,1);
+    const token = new globalThis.URL(link.url).pathname.split("/").at(-1);
+    assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "invitation",token },"",{ origin: "https://evil.example" }))).status,403);
+    assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "invitation",token },"",{ "Content-Type": "text/plain" }))).status,415);
+    assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "invitation",token: "bad" }))).status,404);
+    assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "gallery",token }))).status,404);
+    const exchanged = await handlers.handleGuestAccess(req("POST",{ source: "invitation",token })); assert.equal(exchanged.status,200);
+    const setCookie = exchanged.headers.get("Set-Cookie"), cookie = setCookie.split(";")[0];
+    assert.match(setCookie,/HttpOnly/); assert.match(setCookie,/SameSite=Lax/); assert.match(setCookie,/Max-Age=604800/); assert.doesNotMatch(cookie,new RegExp(token));
+    const read = async cookie => handlers.handleGuestInvitation(req("GET",undefined,cookie));
+    const viewResponse = await read(cookie); assert.equal(viewResponse.status,200); assert.equal(viewResponse.headers.get("X-Resource-Version"),"1");
+    const view = (await viewResponse.json()).data; assert.deepEqual(view.events.map(value => value.name),["Private invited ceremony"]); assert.equal(view.guest.name,"Family");
+    assert.deepEqual(Object.keys(view.guest).sort(),["maxPartySize","name","rsvp","version"]); assert.deepEqual(Object.keys(view.guest.rsvp).sort(),["partySize","respondedAt","status"]);
+    assert.doesNotMatch(JSON.stringify(view),/private@example|private phone|organiser notes|tokenHash|tokenCiphertext|createdByUserId|updatedByUserId|emailNormalized|gallery\.token/);
+    assert.equal(view.capabilities.canRespond,true); assert.equal(view.capabilities.canAttend,true);
+    assert.equal((await read(memberCookie)).status,401); assert.equal((await read(cookie+"x")).status,401);
+    assert.equal((await handlers.handleInvitationLink(req("GET",undefined,cookie),weddingId,guest.id,"read")).status,401);
+    const grant = await invitation.exchange({ source: "invitation",token });
+    const now = Date.now;
+    let expired;
+    try { Date.now = () => now()-8*24*60*60*1000; expired = access.guestCookie(grant).split(";")[0]; } finally { Date.now = now; }
+    assert.equal((await read(expired)).status,401);
+    process.env.APP_ORIGIN = "https://example.com";
+    const secure = access.guestCookie(grant); assert.match(secure,/^__Host-kp-guest=/); assert.match(secure,/; Secure/); assert.doesNotMatch(secure,/Domain=/);
+    process.env.APP_ORIGIN = "http://localhost:3100";
+    assert.equal((await handlers.handleInvitationLink(req("PATCH",{ enabled: false },memberCookie),weddingId,guest.id,"toggle")).status,428);
+    const toggled = await handlers.handleInvitationLink(req("PATCH",{ enabled: false },memberCookie,{ "X-Expected-Version": "1" }),weddingId,guest.id,"toggle"); assert.equal(toggled.status,200);
+    assert.equal((await read(cookie)).status,404); assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "invitation",token }))).status,404);
+    assert.equal((await guests.invitationLink(admin,weddingId,guest.id)).enabled,false);
+    const enabled = await guests.changeInvitation(manager,weddingId,guest.id,{ enabled: true },() => 2); assert.equal(enabled.version,3);
+    const uppercase = await handlers.handleInvitationLink(req("POST",undefined,memberCookie,{ "X-Expected-Version": "3" }),weddingId.toUpperCase(),guest.id.toUpperCase(),"replace"); assert.equal(uppercase.status,200);
+    assert.ok((await guests.invitationLink(admin,weddingId,guest.id)).url,"Token encryption binds the canonical ObjectId, not URL casing");
+    const concurrent = await Promise.all([0,1].map(() => handlers.handleInvitationLink(req("POST",{},memberCookie,{ "X-Expected-Version": "4" }),weddingId,guest.id,"replace")));
+    assert.deepEqual(concurrent.map(value => value.status).sort(),[200,412]);
+    const replaced = await guests.invitationLink(admin,weddingId,guest.id); assert.notEqual(replaced.url,link.url); assert.equal(replaced.guestVersion,5);
+    assert.equal((await read(cookie)).status,404); assert.equal((await handlers.handleGuestAccess(req("POST",{ source: "invitation",token }))).status,404);
+    const fresh = await handlers.handleGuestAccess(req("POST",{ source: "invitation",token: new globalThis.URL(replaced.url).pathname.split("/").at(-1) })); assert.equal(fresh.status,200);
+    const freshCookie = fresh.headers.get("Set-Cookie").split(";")[0];
+    // Tampered relationships never reveal another wedding's event; deleting events are hidden.
+    await db.collection("guests").updateOne({ _id: new ObjectId(guest.id) },{ $set: { invitedEventIds: [new ObjectId(event.id),new ObjectId(foreign.id)] } });
+    await db.collection("events").updateOne({ _id: new ObjectId(event.id) },{ $set: { status: "deleting" } });
+    const empty = (await (await read(freshCookie)).json()).data; assert.deepEqual(empty.events,[]); assert.equal(empty.capabilities.canAttend,false);
+    await db.collection("weddings").updateOne({ _id: new ObjectId(weddingId) },{ $set: { weddingDate: "2010-01-01" } }); assert.equal((await read(freshCookie)).status,200);
+    const cleared = await handlers.handleGuestAccess(req("DELETE",undefined,freshCookie)); assert.equal(cleared.status,204); assert.match(cleared.headers.get("Set-Cookie"),/Max-Age=0/);
+    assert.equal((await invitation.exchange({ source: "invitation",token: new globalThis.URL(replaced.url).pathname.split("/").at(-1) })).guestId,guest.id,"Closing browser access does not revoke the invitation");
+    await db.collection("wedding_members").updateOne({ userId: manager.id },{ $set: { status: "removing" } });
+    await assert.rejects(() => guests.invitationLink(manager,weddingId,guest.id),error => error.status === 404);
+    await db.collection("guests").deleteOne({ _id: new ObjectId(guest.id) }); assert.equal((await read(freshCookie)).status,404);
+    assert.equal(await db.collection("background_jobs").countDocuments(),0);
+    const limitDb = client.db("invitation_limits_isolated");
+    await limitDb.collection("rate_limits").insertOne({ key: "synthetic-auth-adapter-row",count: 1,lastRequest: Date.now() });
+    const { admitGuestAccess } = sourceLoader(overrides)("src/modules/guests/server/access-limiter.ts");
+    process.env.AUTH_TRUSTED_IP_HEADER = "";
+    const fixedNow = Date.now(), realNow = Date.now; let admissions;
+    try { Date.now = () => fixedNow; admissions = await Promise.allSettled(Array.from({ length: 30 },() => admitGuestAccess(limitDb,new globalThis.Headers(),"synthetic-limit-subject"))); }
+    finally { Date.now = realNow; }
+    assert.equal(admissions.filter(value => value.status === "fulfilled").length,20);
+    assert.ok(admissions.filter(value => value.status === "rejected").every(value => value.reason.status === 429 && value.reason.details.retryAfterSeconds > 0));
+    const buckets = await limitDb.collection("rate_limits").find({ bucketKey: { $exists: true } }).toArray();
+    assert.equal(buckets.find(value => value.action === "guest_access_token").count,20);
+    assert.doesNotMatch(JSON.stringify(buckets),/synthetic-limit-subject|shared-local/);
+    assert.ok(buckets.every(value => value.purgeAt > value.windowEndsAt));
+    console.log("PASS: canonical invitation links, Admin/Manager and wedding isolation, guest-only encrypted seven-day cookies, secure flags, expiry/tampering/CSRF, safe event/RSVP projections, disable/enable, concurrent replacement and immediate revocation, deleted/deleting resources, past dates and guest logout. No provider calls.");
+  } finally { await client.close(); await replica.stop(); }
+}
+main().catch(error => { console.error("FAIL: invitation integration check:",error.message.replace(/https?:\/\/\S+/g,"[redacted URL]")); process.exitCode = 1; });

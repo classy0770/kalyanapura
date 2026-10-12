@@ -306,6 +306,8 @@ Dashboard returns `eventCount`, task counts by state, `guestCount`, `respondedGu
 
 Creation atomically creates the wedding and first Admin membership. Concurrent creates are blocked by unique current membership with `409 ALREADY_IN_WEDDING`.
 
+Creation also accepts optional nullable `title`. In the implemented creation increment, POST `/api/v1/weddings` and GET `W` both return `data: { wedding, membership }`: an explicit safe wedding projection and the caller's current membership. Wedding reads include safe website/livestream settings and gallery toggles, excluding tokens and counters. PATCH, derived planning summaries and settings mutations remain future workflows; the UI labels their samples rather than treating them as API results.
+
 ## 9. Members and member invitations
 
 | Method | Endpoint | Access | Contract |
@@ -341,6 +343,8 @@ Inspection does not expose a full recipient email or any planning data. Invalid,
 | DELETE | `W/events/{eventId}` | Member, Admin if photos exist | X-Expected-Version plus `X-Deletion-Confirmation`; 202 durable operation |
 
 Event writable fields: `name`, `type` (default `custom`), `startsAt`, `endsAt`, `venueName`, `address`, `description`, `dressCode`, `coverPhotoId`, `isPublic` (default false). Start is required; end can be null or later than start, including after midnight. Cover must be a ready `event_cover` for this event. Duplicate event names are allowed.
+
+The current event increment implements list/create/read/PATCH. It supports the suggested types `roka`, `engagement`, `mehendi`, `haldi`, `sangeet`, `cocktail`, `wedding`, `reception` and `custom`. The owner-selected default capacity is 25 events per wedding, configurable through `WEDDING_EVENT_LIMIT` and surfaced as `/me`'s `limits.eventsPerWeddingMax`. Deleting rows retain their slot until cleanup completes. Deletion preview/cascade, cover uploads and website publishing remain future increments. The private dashboard reads real event counts/upcoming events from the event service; it does not fabricate other derived planning totals.
 
 Deletion preview returns:
 
@@ -483,7 +487,7 @@ The UI labels `queued`, provider `accepted`, `delivered`, `bounced`, `complained
 | POST | `/api/v1/guest/access` | Entry token | Exchange token and return current source/capability summary; sets cookie |
 | DELETE | `/api/v1/guest/access` | Browser guest context | Clear guest cookie; 204; does not revoke the underlying link |
 | GET | `/api/v1/guest/invitation` | Personal invitation only | Current narrow invitation view and guest revision |
-| PUT | `/api/v1/guest/rsvp` | Personal invitation only | X-Expected-Version of guest; `{status, partySize}`; 200 saved response |
+| PUT | `/api/v1/guest/rsvp` | Personal invitation only | X-Expected-Version of guest; `{invitationContext, status, partySize}`; 200 saved response |
 
 Invitation response explicitly contains:
 
@@ -493,7 +497,7 @@ Invitation response explicitly contains:
 - `capabilities`: `canRespond`, `canAttend`, `canViewGallery`, `canUploadPhotos` and safe explanatory reason codes.
 - Validated livestream embed configuration, when configured for the wedding.
 
-Guest RSVP accepts attending/not-attending only. If no active invited events remain, return the current RSVP with `canAttend=false`; retain the previous attendance unless an organiser corrects it. `canRespond` can remain true because the guest can still choose not-attending. A conflicting new attending submission returns `409 NO_ACTIVE_INVITED_EVENTS`; identical replay of the existing saved answer is still acknowledged without a change. The UI displays the absence of events clearly. Invitation links remain valid after the wedding date, subject to explicit disable/replacement/deletion.
+Guest RSVP accepts attending/not-attending only. The invitation projection includes an opaque `invitationContext` binding wedding, guest and token version; saves must send the displayed context and match the current authenticated grant before mutation or replay acknowledgement. A shared-cookie switch to another invitation returns `409 INVITATION_CONTEXT_CHANGED` and requires explicit reload of the full displayed invitation. Context is not authority; live invitation access is still required. If no active invited events remain, return the current RSVP with `canAttend=false`; retain the previous attendance unless an organiser corrects it. `canRespond` can remain true because the guest can still choose not-attending. A conflicting new attending submission returns `409 NO_ACTIVE_INVITED_EVENTS`; identical replay of the existing saved answer is still acknowledged without a change. The UI displays the absence of events clearly. Invitation links remain valid after the wedding date, subject to explicit disable/replacement/deletion.
 
 ```mermaid
 sequenceDiagram
@@ -764,7 +768,7 @@ Product errors use:
 | 403 | `FORBIDDEN`, `EMAIL_NOT_VERIFIED`, `GALLERY_VIEW_DISABLED`, `GUEST_UPLOAD_DISABLED`, `ORIGIN_REJECTED` | Explain action unavailable; verification if applicable |
 | 404 | `NOT_FOUND`, `LINK_UNAVAILABLE` | Generic unavailable page/resource |
 | 409 | `ALREADY_IN_WEDDING`, `LAST_ADMIN`, `SLUG_TAKEN`, `SLUG_IMMUTABLE`, `INVITATION_ALREADY_EXISTS`, `INVITATION_ALREADY_USED` | Resolve domain conflict before retry |
-| 409 | `RSVP_LIMIT_CONFLICT`, `NO_ACTIVE_INVITED_EVENTS`, `DELETION_PREVIEW_STALE`, `CAPACITY_UNAVAILABLE`, `MEDIA_NOT_READY` | Refresh relevant state or follow preparation flow |
+| 409 | `RSVP_LIMIT_CONFLICT`, `NO_ACTIVE_INVITED_EVENTS`, `INVITATION_CONTEXT_CHANGED`, `DELETION_PREVIEW_STALE`, `CAPACITY_UNAVAILABLE`, `MEDIA_NOT_READY` | Refresh relevant state or follow preparation flow |
 | 409 | `IDEMPOTENCY_KEY_REUSED`, `IMPORT_PREVIEW_EXPIRED`, `RESOURCE_DELETING`, `UPLOAD_EXPIRED` | Correct request/review; do not force an automatic duplicate |
 | 412 | `VERSION_CONFLICT` | Refresh accessible resource and review intended change |
 | 413 | `PAYLOAD_TOO_LARGE` | Reduce file/body size |

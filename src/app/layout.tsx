@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "KalyanaPura · Project foundation", template: "%s · KalyanaPura" },
-  description: "The foundation for a shared Indian wedding workspace. Product workflows are not implemented yet.",
+  description: "A shared Indian wedding workspace for couples and their families.",
   robots: { index: false, follow: false },
 };
 

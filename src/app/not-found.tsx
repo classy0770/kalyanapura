@@ -8,7 +8,7 @@ export default function NotFound() {
       <section className="panel narrow">
         <p className="eyebrow">Page unavailable</p>
         <h1>This page is not available.</h1>
-        <p>Explore the homepage, access your account, or visit the dashboard preview. Wedding planning workflows are coming next.</p>
+        <p>Explore the homepage, access your account, or visit the wedding dashboard. More planning workflows are coming next.</p>
         <Link className="button secondary" href="/">Return to overview</Link>
       </section>
     </ApplicationShell>

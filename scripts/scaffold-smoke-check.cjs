@@ -9,7 +9,7 @@ const pages = [
   ["/verify-email", "Verify your email."],
   ["/forgot-password", "Forgot your password?"],
   ["/reset-password", "Choose a new password."],
-  ["/create-wedding", "A place for your celebration."],
+  ["/preview/create-wedding", "A place for your celebration."],
 ];
 
 async function main() {
@@ -19,14 +19,18 @@ async function main() {
     const text = (await response.text()).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
     assert.ok(text.includes(title), pathname);
   }
-  for (const pathname of ["/missing-scaffold-page", "/api/v1/me", "/api/auth/not-implemented"]) {
+  for (const pathname of ["/missing-scaffold-page", "/api/auth/not-implemented"]) {
     assert.equal((await fetch(new URL(pathname, base))).status, 404, pathname);
   }
-  assert.equal((await fetch(new URL("/api/v1/weddings", base), { method: "POST" })).status, 404);
+  for (const [pathname, method] of [["/api/v1/me", "GET"], ["/api/v1/weddings", "POST"], ["/api/v1/weddings/000000000000000000000001/events", "GET"], ["/api/v1/weddings/000000000000000000000001/events", "POST"], ["/api/v1/weddings/000000000000000000000001/events/000000000000000000000002", "GET"], ["/api/v1/weddings/000000000000000000000001/events/000000000000000000000002", "PATCH"]]) {
+    const denied = await fetch(new URL(pathname, base), { method });
+    assert.equal(denied.status, 401);
+    assert.equal((await denied.json()).error.code, "AUTH_REQUIRED");
+  }
   const sessionResponse = await fetch(new URL("/api/auth/get-session", base));
   assert.ok([200, 503].includes(sessionResponse.status), "Session lookup must succeed or report unavailable configuration");
   if (sessionResponse.status === 503) assert.deepEqual(await sessionResponse.json(), { code: "TEMPORARILY_UNAVAILABLE", message: "This capability is not configured." });
-  for (const pathname of ["/account", "/dashboard"]) {
+  for (const pathname of ["/account", "/dashboard", "/dashboard/events", "/create-wedding"]) {
     const privatePage = await fetch(new URL(pathname, base), { redirect: "manual" });
     assert.equal(privatePage.status, 307, pathname);
     assert.equal(new URL(privatePage.headers.get("location"), base).pathname, "/login");
@@ -70,7 +74,7 @@ async function main() {
         assert.equal(response.status(), 200);
         await page.getByRole("heading", { name: title, exact: true }).waitFor();
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${pathname} overflow at ${width}px`);
-        if (pathname === "/create-wedding") {
+        if (pathname === "/preview/create-wedding") {
           const writes = [];
           const recordWrite = (request) => { if (request.method() === "POST" && new URL(request.url()).pathname.startsWith("/api/")) writes.push(request.url()); };
           page.on("request", recordWrite);
@@ -86,6 +90,37 @@ async function main() {
           assert.ok((await page.locator("main").innerText()).includes("Our preview celebration"));
           assert.ok((await page.locator("main").innerText()).includes("No wedding has been created or saved"));
           assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+          const mobileDrawer = page.getByRole("dialog", { name: "Workspace navigation", exact: true });
+          let previewNavigation;
+          if (width < 850) {
+            await page.getByRole("button", { name: "Open workspace navigation", exact: true }).click();
+            await mobileDrawer.waitFor();
+            previewNavigation = mobileDrawer.getByRole("navigation", { name: "Wedding preview navigation" });
+          } else {
+            previewNavigation = page.getByRole("complementary", { name: "Preview workspace" }).getByRole("navigation", { name: "Wedding preview navigation" });
+            await page.evaluate(() => window.scrollTo(0, 350));
+            assert.ok(Math.abs((await page.getByRole("complementary", { name: "Preview workspace" }).boundingBox()).y) < 1, "Sidebar stays in place while dashboard scrolls");
+            await page.evaluate(() => window.scrollTo(0, 0));
+          }
+          await previewNavigation.getByRole("button", { name: "Expenses Soon", exact: true }).click();
+          const featureDialog = page.getByRole("dialog", { name: "Expenses", exact: true });
+          await featureDialog.waitFor();
+          assert.equal(await mobileDrawer.isVisible(), false, "Mobile drawer closes before opening the feature panel");
+          assert.ok((await featureDialog.innerText()).includes("Nothing is created, changed, or sent"));
+          await page.keyboard.press("Escape");
+          await featureDialog.waitFor({ state: "hidden" });
+          if (width < 850) {
+            await page.getByRole("button", { name: "Open workspace navigation", exact: true }).click();
+            await mobileDrawer.getByRole("button", { name: "Close workspace navigation", exact: true }).click();
+            await mobileDrawer.waitFor({ state: "hidden" });
+          }
+          await page.getByRole("region", { name: "A celebration worth sharing", exact: true }).getByRole("button", { name: "Guest QR Soon", exact: true }).click();
+          const qrDialog = page.getByRole("dialog", { name: "Guest QR", exact: true });
+          await qrDialog.waitFor();
+          await qrDialog.getByRole("button", { name: "Back to workspace", exact: true }).click();
+          await qrDialog.waitFor({ state: "hidden" });
+          await page.evaluate(() => window.scrollTo(0, 0));
+          if (process.env.SMOKE_SCREENSHOT_DIR) await page.screenshot({ path: path.join(path.resolve(process.env.SMOKE_SCREENSHOT_DIR), `dashboard-design-${width}.png`), fullPage: true });
           await page.getByRole("button", { name: "Edit preview details" }).click();
           assert.equal(await page.getByLabel("Bride name", { exact: true }).inputValue(), "Synthetic Bride");
           await page.reload();

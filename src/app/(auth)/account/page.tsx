@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAccount } from "@/modules/accounts/server/session";
@@ -18,5 +19,5 @@ export default async function AccountPage() {
   }
   if (!account) redirect("/login");
   if (!account.emailVerified) redirect("/verify-email");
-  return <section className={styles.card}><p className={styles.eyebrow}>Your account</p><h1>Welcome, {account.name}.</h1><p>You’re logged in with a verified email address.</p><div className={styles.details}><strong>{account.email}</strong><p>Wedding creation and joining will be available in the next feature. This account page does not grant access to a wedding.</p></div><LogoutButton /></section>;
+  return <section className={styles.card}><p className={styles.eyebrow}>Your account</p><h1>Welcome, {account.name}.</h1><p>You’re logged in with a verified email address.</p><div className={styles.details}><strong>{account.email}</strong><p>Create your wedding or open your existing workspace. Joining by invitation is coming in a future feature.</p></div><Link href="/dashboard">Open wedding workspace</Link><LogoutButton /></section>;
 }

@@ -1,6 +1,6 @@
 # KalyanaPura
 
-A single Next.js application for a shared Indian wedding workspace, with the public homepage and account authentication implemented. Wedding workflows remain deferred.
+A single Next.js application for a shared Indian wedding workspace, with the public homepage, account authentication, wedding creation, private membership-scoped wedding details and events implemented. Further planning workflows remain deferred.
 
 ## Prerequisites and setup
 
@@ -28,6 +28,10 @@ Open http://localhost:3000. Development reloads after edits.
 | `npm start` | Serve the completed production build |
 | `npm run check:contracts` | Repeatable HTTP/configuration/connection and TypeScript regression checks; no live services |
 | `npm run check:accounts` | Isolated replica-set authentication/session/email integration checks; synthetic data only |
+| `npm run check:weddings` | Isolated transactional creation, concurrency, isolation and configuration regressions |
+| `npm run check:weddings:browser` | Isolated desktop/mobile login, creation, persistence and logout journey |
+| `npm run check:events` | Isolated event validation, isolation, version, concurrency, capacity and rollback checks |
+| `npm run check:events:browser` | Real desktop/mobile auth, wedding creation, event create/view/edit/conflict and dashboard journey |
 | `npm run check:smoke` | Check an already running server (defaults to port 3100); optional browser checks |
 
 If port 3000 is occupied, `npm run dev -- --port 3001` selects another port. Update `APP_ORIGIN` when later features generate links or check browser origins. For a local production smoke check, run `npm run build`, then `npm start`.
@@ -39,13 +43,16 @@ Development uses Webpack because the installed Next.js 16.4.0 Turbopack developm
 - `/`: responsive marketing homepage adapted from the approved Stitch design, with local fonts/images, labelled fictional product previews, mobile navigation, and expandable FAQs.
 - `/signup`, `/login`, `/verify-email`, `/forgot-password`, `/reset-password`: real account forms backed by Better Auth; service configuration required.
 - `/account`: server-validated, verified-account landing page and logout. No wedding access is granted.
-- `/dashboard`: session-protected dashboard design preview containing fictional data; unauthenticated visitors are redirected to `/login`.
+- `/create-wedding`: verified-account creation form; saves the wedding and initial Admin membership atomically.
+- `/dashboard`: live membership-scoped wedding identity and countdown, with clearly labelled fictional planning samples; anonymous visitors redirect to `/login`, and accounts without membership redirect to setup.
+- `/preview/create-wedding`: public fictional UI preview without database writes.
+- `/dashboard/events`: private ceremony itinerary, creation, detail view and version-protected editing; see [EVENTS.md](docs/EVENTS.md).
 - Shared placeholder application shell, scoped homepage CSS Modules, a not-found page, and no-index metadata.
 - Strict TypeScript, `@/*` imports, ESLint, and pinned npm dependencies.
 - Browser-safe product API types and server-only JSON response/error helpers.
 - Zod capability configuration and a lazy native MongoDB connection with a reused process-level pool.
 
-Better Auth is mounted at `/api/auth/*`; only implemented account endpoints are exposed. `/api/inngest` serves the account-email functions, with signing required in production. Product `/api/v1` workflows remain deferred. Account collections/indexes are initialized lazily when authentication is used; no provider accounts or live infrastructure are created by the application. A successful build does not establish Atlas connectivity or real email delivery.
+Better Auth is mounted at `/api/auth/*`; only implemented account endpoints are exposed. `/api/inngest` serves the account-email functions, with signing required in production. `/api/v1/me`, POST `/api/v1/weddings` and GET `/api/v1/weddings/{weddingId}` are implemented; see [WEDDING_SETUP.md](docs/WEDDING_SETUP.md). Event list/create/detail/edit APIs are implemented too; other product workflows remain deferred. Account collections/indexes are initialized lazily when authentication is used; no provider accounts or live infrastructure are created by the application. A successful build does not establish Atlas connectivity or real email delivery.
 
 ### Homepage design
 
@@ -53,7 +60,7 @@ The public `/` page follows the owner's selected **KalyanaPura Marketing Homepag
 
 Stitch-exported imagery is stored in `public/images/homepage`. Cormorant Garamond and Plus Jakarta Sans are self-hosted with `next/font/local`; their OFL licenses are retained in `public/fonts`. The page does not load Tailwind/CDN scripts, remote images, or external font stylesheets. Fonts are scoped to the homepage so existing placeholder pages keep their styling.
 
-All wedding names, tasks, expenses, guest responses, and photos are illustrative. Account and workspace actions lead to the existing `/login` and `/dashboard` placeholders. There are no signup submissions, RSVP updates, uploads, payments, fake livestreams, or live wedding reads. The design's unsupported unlimited-members promise and inactive legal links were omitted.
+Marketing wedding names, tasks, expenses, guest responses and photos are illustrative. Account and workspace actions lead to real account and wedding setup routes. Marketing previews do not submit RSVPs, upload media, take payments or publish websites. The design's unsupported unlimited-members promise and inactive legal links were omitted.
 
 Homepage verification on 10 October 2026: lint, strict type checking, production build, contract checks, and production HTTP/desktop/mobile Edge smoke checks passed using Node 24.19.0. Smoke checks verify FAQ expansion, mobile menu selection, image loading, navigation, and horizontal overflow. Optional `SMOKE_SCREENSHOT_DIR` writes full-page and viewport screenshots. Production audit found zero issues; full audit retains the four high development findings documented below.
 
@@ -129,9 +136,9 @@ API section 24 requires upload reservation dedupe/signing/source-version fields 
 
 ## Deferred implementation
 
-Accounts are implemented with pinned Better Auth and its native MongoDB adapter: signup, verification/resend, login, password reset, logout, authoritative seven-day sessions, trusted callback checks, database rate limits, and protected `/account`. Auth email hooks persist encrypted jobs before dispatch through Inngest/Resend. Setup is required before real account use; follow [ACCOUNT_SETUP.md](docs/ACCOUNT_SETUP.md). Account integration checks use a disposable replica set with synthetic identities; real Atlas/provider delivery must be tested after configuration. The API owns auth response shapes; product envelopes remain separate. `/api/v1/me` remains deferred until live membership and limits can be returned accurately.
+Accounts are implemented with pinned Better Auth and its native MongoDB adapter: signup, verification/resend, login, password reset, logout, authoritative seven-day sessions, trusted callback checks, database rate limits, and protected `/account`. Auth email hooks persist encrypted jobs before dispatch through Inngest/Resend. Setup is required before real account use; follow [ACCOUNT_SETUP.md](docs/ACCOUNT_SETUP.md). Account integration checks use a disposable replica set with synthetic identities; real Atlas/provider delivery must be tested after configuration. The API owns auth response shapes; product envelopes remain separate. `/api/v1/me` now returns live membership and documented limits.
 
-Next milestone: wedding creation, member invitations, current membership/role checks, and last-Admin concurrency protection. No wedding access is granted by the account page. The existing `/dashboard` requires a verified account session and remains a fictional preview until the wedding feature adds membership-scoped reads.
+Wedding creation, initial Admin membership and private dashboard details are implemented; follow [WEDDING_SETUP.md](docs/WEDDING_SETUP.md). Invitations, member administration and last-Admin role/removal workflows remain deferred.
 
 Then implement events/tasks; guests/import/invitations/RSVP/email; vendors/expenses; website/themes/livestream; and gallery/media/uploads/QR. Add security, meaningful tests, and failure handling alongside each workflow. Use Vitest for business rules, replica-set MongoDB integration tests for transactions/isolation, and Playwright for complete browser flows when needed; no test framework is installed for the placeholder shell.
 
@@ -176,6 +183,8 @@ Malformed application origins are rejected safely: the refinement guards URL par
 | `npm run build` | Passed without service credentials |
 | `npm run check:contracts` | Passed, including malformed origin and connection reuse/recovery |
 | `npm run check:accounts` | Passed against disposable MongoDB 8.2.6 replica set: signup/duplicate handling, verification, unverified rejection, login, reset/replay rejection, logout, session expiry/revocation, HTTPS cookies, ID mapping, database rate limits, callback/origin/body bounds, encrypted email retry/claims/deadlines |
+| `npm run check:weddings` | Isolated transactional creation, concurrency, isolation and configuration regressions |
+| `npm run check:weddings:browser` | Isolated desktop/mobile login, creation, persistence and logout journey |
 | `npm run check:smoke` | Passed HTTP and Edge/Playwright checks at 1280/390px: all account forms render, anonymous `/account` redirects, unconfigured signup fails clearly and can retry, homepage/navigation/theme checks remain passing |
 | `npm audit --omit=dev` | Passed: zero production vulnerabilities |
 | `npm audit` | Failed: the four previously documented development findings in the braces chain remain |
@@ -188,10 +197,48 @@ The machine's default Node.js remains 20.19.0; the bundled Node 24 runtime was i
 
 Live Atlas connectivity, auth sessions, email, media, jobs, isolation transactions, and domain workflows were not tested because they are deferred. No commit, push, or deployment was performed.
 
-### Wedding UI previews
+### Wedding workspace and UI previews
 
-`/create-wedding` is a public design preview and `/dashboard` is a session-protected design preview in `src/modules/weddings/components`. The design references are Stitch's **KalyanaPura - Wedding Creation Onboarding** (`e68eb3544c18403699e6598e61286395`) and **KalyanaPura - Wedding Dashboard** (`466eaf0bf6254d828b281eaee485590e`) in project `9574853340286145696`.
+`/create-wedding` is now a real verified-account form. `/dashboard` resolves live membership and shows saved couple names, wedding date/location/title, actual Admin/Manager role and an Asia/Kolkata countdown. Events and their count now use saved data; tasks, RSVPs and expenses remain explicitly labelled samples; coming-soon dialogs perform no product writes. The desktop sidebar is sticky, and mobile navigation uses a native dialog.
 
-The onboarding form collects the four required wedding fields and an optional title. Its button renders a dashboard preview in memory; editing returns to the same draft, and refreshing clears it. No wedding API calls, database writes, membership creation, or persistent browser storage are implemented by these previews. The standalone dashboard uses labelled fictional details and unavailable planning indicators. Cover uploads and planning tools are deferred. `/account` retains its existing session protection; these preview routes grant no wedding permissions.
+The original fictional onboarding design remains at `/preview/create-wedding`, with in-memory form-to-dashboard preview and no wedding API requests. Stitch references: **KalyanaPura - Wedding Creation Onboarding** (`e68eb3544c18403699e6598e61286395`) and **KalyanaPura - Wedding Dashboard** (`466eaf0bf6254d828b281eaee485590e`) in project `9574853340286145696`. The dashboard layout also draws from the [Make My Marriage reference](https://github.com/akshaymarch7/make-my-marriage/tree/dev/src/components), using local CSS Modules.
 
-The existing browser smoke command also checks form-to-dashboard preview, returning to edit, clearing drafts on refresh, and absence of wedding POST requests at desktop/mobile widths.
+Creation/configuration, private HTTP contracts, zero media quota, key recovery and production backup prerequisites are documented in [WEDDING_SETUP.md](docs/WEDDING_SETUP.md). Earlier verification sections above record historical milestones, not the current feature's operational readiness.
+
+### Wedding increment verification — 10 October 2026
+
+| Command/check | Result |
+|---|---|
+| `npm run lint` | Passed |
+| `npm run typecheck` | Passed |
+| `npm run build` | Passed; real private routes are dynamic, pure UI preview is static |
+| `npm run check:contracts` | Passed |
+| `npm run check:accounts` | Passed against isolated local replica set |
+| `npm run check:weddings` | Passed: real auth, strict validation, CSRF/body limits, safe projections, encrypted defaults, unique membership under concurrent creation, transaction rollback, foreign-wedding denial, removing/forged/expired sessions and Kolkata calendar boundaries |
+| `npm run check:weddings:browser` | Passed in installed Edge at 1280/390px: login → create wedding → persisted dashboard → reload → existing-member redirect → logout → private-route denial |
+| `npm run check:smoke -- http://localhost:3101` | Passed production HTTP and desktop/mobile browser checks, including the retained fictional preview; live database access was disabled |
+| `npm audit --omit=dev` | Passed: zero production vulnerabilities |
+| `npm audit` | Failed: four previously documented high findings in the development braces dependency chain; dependencies unchanged |
+| Live Atlas wedding writes, real provider delivery, backup restore and future workflows | Not run; automated tests use isolated synthetic accounts and no provider sends |
+
+Initial verification exposed lint issues and a mobile rule hiding the real role badge; these were corrected before final passes. The temporary production smoke server and isolated test servers/databases were stopped. No commit, push, deployment or live infrastructure change was performed.
+
+### Events increment — 10 October 2026
+
+Events use real wedding-scoped persistence: creation, detail view, chronological lists, version-protected editing, and saved dashboard count/upcoming itinerary. The owner-approved capacity is 25 per wedding. Cover uploads, event deletion, exports/calendar sync and linked product workflows remain deferred. See [EVENTS.md](docs/EVENTS.md) for contracts and verification details.
+
+Final lint, typecheck, build, contract/account/wedding regressions, event integration checks and the real desktop/mobile event browser journey passed. Production HTTP/browser smoke checks passed with live database access disabled. Production audit passed; the full audit retains the four known development findings. Live Atlas event writes, providers and backup restoration were not run. No commit, push or deployment was performed.
+
+### Guest list design preview
+
+The existing Stitch “KalyanaPura - Guest List” screen informs the guest directory design. `/preview/guests` retains entirely fictional data for review without signing in. Its search, RSVP/event filters, guest details and add/edit drawers operate only on in-memory sample state; refreshing restores the samples. This separate prototype performs no persistence or invitation delivery. `/dashboard/guests` now uses saved data as described below.
+
+Desktop/mobile presentation checks use existing Playwright tooling: `node scripts/guest-preview-check.cjs http://localhost:3100` (set `PLAYWRIGHT_MODULE_PATH` if needed, and optionally `PLAYWRIGHT_CHANNEL`). They make no product writes or provider requests.
+
+### Saved guest management
+
+`/dashboard/guests` now uses saved wedding-scoped guests, with contact details, party limits, notes, active event assignments, details, version-protected edits, name-prefix search, RSVP/event filters and pagination. The dashboard guest-group count is real. `/preview/guests` retains fictional sample data. Guest RSVP collection is implemented. CSV guest import is implemented; see docs/GUEST_IMPORT.md. Deletion and automated messaging are deferred. See [GUESTS.md](docs/GUESTS.md); run `check:guests` and `check:guests:browser` for isolated regressions.
+
+### Personal invitation links
+
+Open a saved guest's details and load the invitation controls to copy, disable/enable or replace their link. `/invite/{token}` opens real scoped wedding/event details at the clean `/invitation` URL using a separate encrypted guest cookie, without an account. Replaced/disabled links and their derived access are rechecked on every request. `/preview/invitation` remains a fictional design preview. Guests can save and change their overall RSVP through the invitation; dashboard totals derive from saved responses. See [RSVP.md](docs/RSVP.md) and run `check:rsvp` plus `check:rsvp:browser`. Galleries/media and delivery remain deferred. See [INVITATIONS.md](docs/INVITATIONS.md); run `check:invitations` and `check:invitations:browser` with existing local tooling. No new dependency or credential is required.
